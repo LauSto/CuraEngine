@@ -88,6 +88,13 @@ public:
      */
     bool has(const std::string& key) const;
 
+    /*!
+     * \brief Check if a setting value exists for a key, i.e. if get() will be successful.
+     *
+     * \param key The setting to check.
+     */
+    bool exists(const std::string& key) const;
+
     /*
      * Change the parent settings object.
      *

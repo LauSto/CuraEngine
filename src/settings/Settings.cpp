@@ -586,6 +586,22 @@ bool Settings::has(const std::string& key) const
     return settings.find(key) != settings.end();
 }
 
+bool Settings::exists(const std::string &key) const
+{
+    if (has(key))
+    {
+        return true;
+    }
+
+    const std::unordered_map<std::string, ExtruderTrain*>& limit_to_extruder = Application::getInstance().current_slice->scene.limit_to_extruder;
+    if (limit_to_extruder.find(key) != limit_to_extruder.end())
+    {
+        return true;
+    }
+
+    return parent && parent->exists(key);
+}
+
 void Settings::setParent(Settings* new_parent)
 {
     parent = new_parent;
