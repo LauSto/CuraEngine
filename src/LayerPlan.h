@@ -654,6 +654,13 @@ public:
      * \param starting_position Start from this coordinate.
      * */
     void optimizePaths(const Point& starting_position);
+
+    /*!
+     * Apply skywriting
+     * */
+    void skywritePaths(coord_t distance, AngleDegrees angle);
+
+    void addSkywritePath(cura::GCodePath &tmplt, cura::Point point, std::vector<cura::GCodePath> &skywrite);
 };
 
 }//namespace cura

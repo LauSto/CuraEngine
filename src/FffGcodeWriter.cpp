@@ -877,6 +877,11 @@ LayerPlan& FffGcodeWriter::processLayer(const SliceDataStorage& storage, LayerIn
         gcode_layer.optimizePaths(gcode.getPositionXY());
     }
 
+    if (storage.meshes[0].settings.exists("skywrite") && storage.meshes[0].settings.get<bool>("skywrite"))
+    {
+        gcode_layer.skywritePaths(storage.meshes[0].settings.get<coord_t>("skywrite_distance"), storage.meshes[0].settings.get<AngleDegrees>("skywrite_angle"));
+    }
+
     return gcode_layer;
 }
 

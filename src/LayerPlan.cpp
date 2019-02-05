@@ -1751,4 +1751,62 @@ void LayerPlan::optimizePaths(const Point& starting_position)
     }
 }
 
+void LayerPlan::skywritePaths(coord_t distance, AngleDegrees angle)
+{
+    std::vector<GCodePath> skywrite;
+    GCodePath fastPath(configs_storage.travel_config_per_extruder[getExtruder()], current_mesh, SpaceFillType::None, 1.0, false, 1);
+    GCodePath slowPath(configs_storage.travel_config_per_extruder[getExtruder()], current_mesh, SpaceFillType::None, 1.0, false, 0.1);
+    double maxDotProduct = cos(M_PI * angle / 180) * distance * distance;
+
+    for (ExtruderPlan& extr_plan : extruder_plans) {
+        for (auto path = extr_plan.paths.begin(); path != extr_plan.paths.end(); path++) {
+            if (path->isTravelPath()) continue;
+
+            Point extrudeBegin = (path - 1)->points.back();
+            Point extrudeEnd = path->points.front();
+            Point skywriteVector = normal(extrudeEnd - extrudeBegin, distance);
+
+            addSkywritePath(fastPath, extrudeBegin - skywriteVector, skywrite);
+            addSkywritePath(slowPath, extrudeBegin, skywrite);
+            addSkywritePath(*path, extrudeEnd, skywrite);
+
+            if (path->points.size() > 1) {
+                for (auto point = path->points.begin(); point != path->points.end() - 1; point++) {
+
+                    extrudeBegin = point[0];
+                    extrudeEnd = point[1];
+                    Point nextSkywriteVector = normal(extrudeEnd - extrudeBegin, distance);
+
+                    if (dot(skywriteVector, nextSkywriteVector) <= maxDotProduct) {
+                        addSkywritePath(slowPath, extrudeBegin + skywriteVector, skywrite);
+                        addSkywritePath(fastPath, extrudeBegin - nextSkywriteVector, skywrite);
+                        addSkywritePath(slowPath, extrudeBegin, skywrite);
+                    }
+
+                    addSkywritePath(*path, extrudeEnd, skywrite);
+                    skywriteVector = nextSkywriteVector;
+                }
+            }
+
+            addSkywritePath(slowPath, extrudeEnd + skywriteVector, skywrite);
+
+            // Why is this necessary? Who knows.
+            path++;
+            if (path == extr_plan.paths.end()) break;
+        }
+
+        // first travel move in layer must be preserved
+        skywrite.insert(skywrite.begin(), extr_plan.paths.front());
+        extr_plan.paths = skywrite;
+    }
+}
+
+void LayerPlan::addSkywritePath(cura::GCodePath &tmplt, cura::Point point, std::vector<cura::GCodePath> &skywrite)
+{
+    GCodePath path(tmplt);
+    path.points.clear();
+    path.points.push_back(point);
+    skywrite.push_back(path);
+}
+
 }//namespace cura
