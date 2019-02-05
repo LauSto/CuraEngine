@@ -1,3 +1,5 @@
+#include <random>
+
 //Copyright (c) 2018 Ultimaker B.V.
 //CuraEngine is released under the terms of the AGPLv3 or higher.
 
@@ -1243,6 +1245,92 @@ void FffGcodeWriter::addMeshPartToGCode(const SliceDataStorage& storage, const S
     gcode_layer.setIsInside(false);
 }
 
+std::vector<std::pair<Polygons, AngleDegrees>> FffGcodeWriter::getCheckerboard(const SliceMeshStorage &mesh, LayerPlan& gcode_layer) const
+{
+    const AABB aabb = mesh.bounding_box.flatten();
+    if (!mesh.settings.exists("checkerboard_enable") || !mesh.settings.get<bool>("checkerboard_enable")) {
+        Polygons result;
+        result.add(aabb.toPolygon());
+        AngleDegrees angles = 0;
+        if(mesh.settings.exists("layer_rotation")){
+            angles = std::fmod(std::fmod(mesh.settings.get<AngleDegrees>("layer_rotation")*gcode_layer.getLayerNr(),360)+360,360);
+        }
+        return std::vector<std::pair<Polygons, AngleDegrees>> {std::pair<Polygons, AngleDegrees>(result, angles)};
+    }
+
+    auto gridDX = mesh.settings.get<coord_t>("tile_width");
+    auto gridDY = mesh.settings.get<coord_t>("tile_width");
+    auto overlapX = mesh.settings.get<coord_t>("tile_overlap");
+    auto overlapY = mesh.settings.get<coord_t>("tile_overlap");
+    auto tileRotation = mesh.settings.get<AngleDegrees>("tile_rotation");
+    auto order = mesh.settings.get<std::string>("checkerboard_order");
+    auto layerOffset = mesh.settings.get<std::string>("layer_offset_type");
+    auto layerRotation = mesh.settings.get<AngleDegrees>("layer_rotation");
+
+    auto layerNr = gcode_layer.getLayerNr();
+
+
+    /*!
+     * Calculate Inter-Layer Offset
+     */
+    ClipperLib::cInt gridXOffset = 0;
+    ClipperLib::cInt gridYOffset = 0;
+
+    std::random_device device;
+    std::mt19937 generator(device());
+    std::uniform_int_distribution<int> distribution(0,gridDY);
+
+    if(layerOffset == "layer_offset_type_random"){
+        gridYOffset = distribution(generator);
+        gridXOffset = distribution(generator) * gridDX / gridDY;
+    } else if(layerOffset == "layer_offset_type_fix"){
+        gridYOffset = (mesh.settings.get<coord_t>("layer_offset_y") * layerNr) % gridDY;
+        gridXOffset = (mesh.settings.get<coord_t>("layer_offset_x") * layerNr) % gridDX;
+    }
+
+    /*!
+     * Construct Checkerboard
+     */
+    AngleDegrees currentAngle = std::fmod(layerRotation*layerNr,90);
+    std::float_t sinCA = sin(currentAngle*M_PI/180);
+    std::float_t cosCA = cos(currentAngle*M_PI/180);
+    ClipperLib::cInt boundX = aabb.max.X - (aabb.min.X - gridXOffset);
+    ClipperLib::cInt boundY = aabb.max.Y - (aabb.min.Y - gridYOffset);
+    ClipperLib::cInt boundRotX = boundX*cosCA+boundY*sinCA;
+    ClipperLib::cInt boundRotY = boundY*cosCA+boundX*sinCA;
+    Point startRot = Point(aabb.min.X - gridXOffset + boundX*sinCA*sinCA, aabb.min.Y - gridYOffset-boundY*sinCA*cosCA);
+    Polygon rotTile;
+    Point A = Point(overlapY*sinCA-overlapX*cosCA,-overlapX*sinCA-overlapY*cosCA);
+    Point D = A + Point(-sinCA*(gridDX+overlapX),cosCA*(gridDY+overlapY));
+    Point B = D + Point(cosCA*(gridDX+overlapX),sinCA*(gridDY+overlapY));
+    rotTile.add(A);
+    rotTile.add(D);
+    rotTile.add(B);
+    rotTile.add(A + Point(cosCA*(gridDX+overlapX),sinCA*(gridDY+overlapY)));
+    rotTile.translate(startRot);
+    bool flipParity = (std::fmod(layerRotation * layerNr, 180) >= 90) && (boundX / gridDX + (boundX % gridDX != 0)) % 2 == 0;
+
+    std::vector<std::pair<Polygons, AngleDegrees>> even, odd;
+    for (ClipperLib::cInt i = 0; i * gridDX < boundRotX; i++) {
+        for (ClipperLib::cInt j = 0; j * gridDY < boundRotY; j++) {
+            Polygons tile;
+            Polygon rotTileIt = rotTile;
+            rotTileIt.translate(Point(cosCA*i*gridDX-sinCA*j*gridDY,cosCA*j*gridDY+sinCA*i*gridDX));
+            tile.add(rotTileIt);
+            bool parity = i%2 != j%2;
+            if(flipParity){
+                parity = !parity;
+            }
+            AngleDegrees totalAngle = (parity ? AngleDegrees(0) : tileRotation) - AngleDegrees(layerNr*layerRotation);
+            (order == "checkerboard_order_evenodd" && parity ? odd : even).emplace_back(tile, totalAngle);
+        }
+    }
+
+    even.insert(even.end(), odd.begin(), odd.end());
+    if (order == "checkerboard_order_random") std::shuffle(even.begin(), even.end(), generator);
+    return even;
+}
+
 bool FffGcodeWriter::processInfill(const SliceDataStorage& storage, LayerPlan& gcode_layer, const SliceMeshStorage& mesh, const size_t extruder_nr, const PathConfigStorage::MeshPathConfigs& mesh_config, const SliceLayerPart& part) const
 {
     if (extruder_nr != mesh.settings.get<ExtruderTrain&>("infill_extruder_nr").extruder_nr)
@@ -1351,9 +1439,6 @@ bool FffGcodeWriter::processSingleLayerInfill(const SliceDataStorage& storage, L
     bool added_something = false;
     const coord_t infill_line_width = mesh_config.infill_config[0].getLineWidth();
 
-    //Combine the 1 layer thick infill with the top/bottom skin and print that as one thing.
-    Polygons infill_polygons;
-    Polygons infill_lines;
 
     const EFillMethod pattern = mesh.settings.get<EFillMethod>("infill_pattern");
     const bool zig_zaggify_infill = mesh.settings.get<bool>("zig_zaggify_infill") || pattern == EFillMethod::ZIG_ZAG;
@@ -1369,80 +1454,82 @@ bool FffGcodeWriter::processSingleLayerInfill(const SliceDataStorage& storage, L
     }
     const Point3 mesh_middle = mesh.bounding_box.getMiddle();
     const Point infill_origin(mesh_middle.x + mesh.settings.get<coord_t>("infill_offset_x"), mesh_middle.y + mesh.settings.get<coord_t>("infill_offset_y"));
-    for (unsigned int density_idx = part.infill_area_per_combine_per_density.size() - 1; (int)density_idx >= 0; density_idx--)
-    {
-        int infill_line_distance_here = infill_line_distance << (density_idx + 1); // the highest density infill combines with the next to create a grid with density_factor 1
-        int infill_shift = infill_line_distance_here / 2;
-        // infill shift explanation: [>]=shift ["]=line_dist
-// :       |       :       |       :       |       :       |         > furthest from top
-// :   |   |   |   :   |   |   |   :   |   |   |   :   |   |   |     > further from top
-// : | | | | | | | : | | | | | | | : | | | | | | | : | | | | | | |   > near top
-// >>"""""
-// :       |       :       |       :       |       :       |         > furthest from top
-// :   |   |   |   :   |   |   |   :   |   |   |   :   |   |   |     > further from top
-// : | | | | | | | : | | | | | | | : | | | | | | | : | | | | | | |   > near top
-// >>>>"""""""""
-// :       |       :       |       :       |       :       |         > furthest from top
-// :   |   |   |   :   |   |   |   :   |   |   |   :   |   |   |     > further from top
-// : | | | | | | | : | | | | | | | : | | | | | | | : | | | | | | |   > near top
-// >>>>>>>>"""""""""""""""""
 
-        const coord_t maximum_resolution = mesh.settings.get<coord_t>("meshfix_maximum_resolution");
+    for (const auto &mask_and_angle : getCheckerboard(mesh, gcode_layer)) {
 
-        if (density_idx == part.infill_area_per_combine_per_density.size() - 1 || pattern == EFillMethod::CROSS || pattern == EFillMethod::CROSS_3D)
-        { // the least dense infill should fill up all remaining gaps
-// :       |       :       |       :       |       :       |       :  > furthest from top
-// :   |   |   |   :   |   |   |   :   |   |   |   :   |   |   |   :  > further from top
-// : | | | | | | | : | | | | | | | : | | | | | | | : | | | | | | | :  > near top
-//   .   .     .       .           .               .       .       .
-//   :   :     :       :           :               :       :       :
-//   `"""'     `"""""""'           `"""""""""""""""'       `"""""""'
-//                                                             ^   new line distance for lowest density infill
-//                                       ^ infill_line_distance_here for lowest density infill up till here
-//                 ^ middle density line dist
-//     ^   highest density line dist
-            
-            //All of that doesn't hold for the Cross patterns; they should just always be multiplied by 2 for every density index.
-            infill_line_distance_here /= 2;
-        }
+        //Combine the 1 layer thick infill with the top/bottom skin and print that as one thing.
+        Polygons infill_polygons;
+        Polygons infill_lines;
 
-        Polygons in_outline = part.infill_area_per_combine_per_density[density_idx][0];
-        constexpr double minimum_small_area = 0.4 * 0.4 * 2; // MIN_AREA_SIZE * 2 - This value worked for most test cases
-        
-        // This is only for density infill, because after generating the infill might appear unnecessary infill on walls
-        // especially on vertical surfaces
-        in_outline.removeSmallAreas(minimum_small_area);
-        
-        Infill infill_comp(pattern, zig_zaggify_infill, connect_polygons, in_outline, /*outline_offset =*/ 0
-            , infill_line_width, infill_line_distance_here, infill_overlap, infill_multiplier, infill_angle, gcode_layer.z, infill_shift, wall_line_count, infill_origin
-            , /*Polygons* perimeter_gaps =*/ nullptr
-            , /*bool connected_zigzags =*/ false
-            , /*bool use_endpieces =*/ false
-            , /*bool skip_some_zags =*/ false
-            , /*int zag_skip_count =*/ 0
-            , mesh.settings.get<coord_t>("cross_infill_pocket_size")
-            , maximum_resolution);
-        infill_comp.generate(infill_polygons, infill_lines, mesh.cross_fill_provider, &mesh);
-    }
-    if (infill_lines.size() > 0 || infill_polygons.size() > 0)
-    {
-        added_something = true;
-        setExtruder_addPrime(storage, gcode_layer, extruder_nr);
-        gcode_layer.setIsInside(true); // going to print stuff inside print object
-        if (!infill_polygons.empty())
+        for (unsigned int density_idx = part.infill_area_per_combine_per_density.size() - 1; (int)density_idx >= 0; density_idx--)
         {
-            constexpr bool force_comb_retract = false;
-            gcode_layer.addTravel(infill_polygons[0][0], force_comb_retract);
-            gcode_layer.addPolygonsByOptimizer(infill_polygons, mesh_config.infill_config[0]);
+            int infill_line_distance_here = infill_line_distance << (density_idx + 1); // the highest density infill combines with the next to create a grid with density_factor 1
+            int infill_shift = infill_line_distance_here / 2;
+            // infill shift explanation: [>]=shift ["]=line_dist
+    // :       |       :       |       :       |       :       |         > furthest from top
+    // :   |   |   |   :   |   |   |   :   |   |   |   :   |   |   |     > further from top
+    // : | | | | | | | : | | | | | | | : | | | | | | | : | | | | | | |   > near top
+    // >>"""""
+    // :       |       :       |       :       |       :       |         > furthest from top
+    // :   |   |   |   :   |   |   |   :   |   |   |   :   |   |   |     > further from top
+    // : | | | | | | | : | | | | | | | : | | | | | | | : | | | | | | |   > near top
+    // >>>>"""""""""
+    // :       |       :       |       :       |       :       |         > furthest from top
+    // :   |   |   |   :   |   |   |   :   |   |   |   :   |   |   |     > further from top
+    // : | | | | | | | : | | | | | | | : | | | | | | | : | | | | | | |   > near top
+    // >>>>>>>>"""""""""""""""""
+
+            const coord_t maximum_resolution = mesh.settings.get<coord_t>("meshfix_maximum_resolution");
+
+            if (density_idx == part.infill_area_per_combine_per_density.size() - 1 || pattern == EFillMethod::CROSS || pattern == EFillMethod::CROSS_3D)
+            { // the least dense infill should fill up all remaining gaps
+    // :       |       :       |       :       |       :       |       :  > furthest from top
+    // :   |   |   |   :   |   |   |   :   |   |   |   :   |   |   |   :  > further from top
+    // : | | | | | | | : | | | | | | | : | | | | | | | : | | | | | | | :  > near top
+    //   .   .     .       .           .               .       .       .
+    //   :   :     :       :           :               :       :       :
+    //   `"""'     `"""""""'           `"""""""""""""""'       `"""""""'
+    //                                                             ^   new line distance for lowest density infill
+    //                                       ^ infill_line_distance_here for lowest density infill up till here
+    //                 ^ middle density line dist
+    //     ^   highest density line dist
+
+                //All of that doesn't hold for the Cross patterns; they should just always be multiplied by 2 for every density index.
+                infill_line_distance_here /= 2;
+            }
+
+            Polygons in_outline = part.infill_area_per_combine_per_density[density_idx][0].intersection(mask_and_angle.first);
+            Infill infill_comp(pattern, zig_zaggify_infill, connect_polygons, in_outline, /*outline_offset =*/ 0
+                , infill_line_width, infill_line_distance_here, infill_overlap, infill_multiplier, infill_angle + mask_and_angle.second, gcode_layer.z, infill_shift, wall_line_count, infill_origin
+                , /*Polygons* perimeter_gaps =*/ nullptr
+                , /*bool connected_zigzags =*/ false
+                , /*bool use_endpieces =*/ false
+                , /*bool skip_some_zags =*/ false
+                , /*int zag_skip_count =*/ 0
+                , mesh.settings.get<coord_t>("cross_infill_pocket_size")
+                , maximum_resolution);
+            infill_comp.generate(infill_polygons, infill_lines, mesh.cross_fill_provider, &mesh);
         }
-        const bool enable_travel_optimization = mesh.settings.get<bool>("infill_enable_travel_optimization");
-        if (pattern == EFillMethod::GRID || pattern == EFillMethod::LINES || pattern == EFillMethod::TRIANGLES || pattern == EFillMethod::CUBIC || pattern == EFillMethod::TETRAHEDRAL || pattern == EFillMethod::QUARTER_CUBIC || pattern == EFillMethod::CUBICSUBDIV)
+        if (infill_lines.size() > 0 || infill_polygons.size() > 0)
         {
-            gcode_layer.addLinesByOptimizer(infill_lines, mesh_config.infill_config[0], SpaceFillType::Lines, enable_travel_optimization, mesh.settings.get<coord_t>("infill_wipe_dist"));
-        }
-        else
-        {
-            gcode_layer.addLinesByOptimizer(infill_lines, mesh_config.infill_config[0], (pattern == EFillMethod::ZIG_ZAG) ? SpaceFillType::PolyLines : SpaceFillType::Lines, enable_travel_optimization);
+            added_something = true;
+            setExtruder_addPrime(storage, gcode_layer, extruder_nr);
+            gcode_layer.setIsInside(true); // going to print stuff inside print object
+            if (!infill_polygons.empty())
+            {
+                constexpr bool force_comb_retract = false;
+                gcode_layer.addTravel(infill_polygons[0][0], force_comb_retract);
+                gcode_layer.addPolygonsByOptimizer(infill_polygons, mesh_config.infill_config[0]);
+            }
+            const bool enable_travel_optimization = mesh.settings.get<bool>("infill_enable_travel_optimization");
+            if (pattern == EFillMethod::GRID || pattern == EFillMethod::LINES || pattern == EFillMethod::TRIANGLES || pattern == EFillMethod::CUBIC || pattern == EFillMethod::TETRAHEDRAL || pattern == EFillMethod::QUARTER_CUBIC || pattern == EFillMethod::CUBICSUBDIV)
+            {
+                gcode_layer.addLinesByOptimizer(infill_lines, mesh_config.infill_config[0], SpaceFillType::Lines, enable_travel_optimization, mesh.settings.get<coord_t>("infill_wipe_dist"));
+            }
+            else
+            {
+                gcode_layer.addLinesByOptimizer(infill_lines, mesh_config.infill_config[0], (pattern == EFillMethod::ZIG_ZAG) ? SpaceFillType::PolyLines : SpaceFillType::Lines, enable_travel_optimization);
+            }
         }
     }
     return added_something;

@@ -375,6 +375,14 @@ private:
     void addMeshPartToGCode(const SliceDataStorage& storage, const SliceMeshStorage& mesh, const size_t extruder_nr, const PathConfigStorage::MeshPathConfigs& mesh_config, const SliceLayerPart& part, LayerPlan& gcode_layer) const;
 
     /*!
+     * Helper function to generate checkerboard squares.
+     *
+     * @param mesh The current mesh for retrieving settings and bounding box.
+     * @return A vector containing the checkerboard squares to be processed in order.
+     */
+    std::vector<std::pair<Polygons, AngleDegrees>> getCheckerboard(const SliceMeshStorage& mesh, LayerPlan& gcode_layer) const;
+
+    /*!
      * \brief Add infill for a given part in a layer plan.
      *
      * \param gcodeLayer The initial planning of the gcode of the layer.
