@@ -82,9 +82,18 @@ void GCodeExport::preSetup(const size_t start_extruder)
     {
         new_line = "\r\n";
     }
-    else 
+    else
     {
         new_line = "\n";
+    }
+
+    if (flavor == EGCodeFlavor::SLM)
+    {
+        comment_symbol = "// ";
+    }
+    else
+    {
+        comment_symbol = ";";
     }
 
     // initialize current_max_z_feedrate to firmware defaults
@@ -148,6 +157,8 @@ const std::string GCodeExport::flavorToString(const EGCodeFlavor& flavor) const
             return "Repetier";
         case EGCodeFlavor::REPRAP:
             return "RepRap";
+        case EGCodeFlavor::SLM:
+            return "SLM";
         case EGCodeFlavor::MARLIN:
         default:
             return "Marlin";
@@ -161,13 +172,13 @@ std::string GCodeExport::getFileHeader(const std::vector<bool>& extruder_is_used
     switch (flavor)
     {
     case EGCodeFlavor::GRIFFIN:
-        prefix << ";START_OF_HEADER" << new_line;
-        prefix << ";HEADER_VERSION:0.1" << new_line;
-        prefix << ";FLAVOR:" << flavorToString(flavor) << new_line;
-        prefix << ";GENERATOR.NAME:Cura_SteamEngine" << new_line;
-        prefix << ";GENERATOR.VERSION:" << VERSION << new_line;
-        prefix << ";GENERATOR.BUILD_DATE:" << Date::getDate().toStringDashed() << new_line;
-        prefix << ";TARGET_MACHINE.NAME:" << machine_name << new_line;
+        prefix << comment_symbol << "START_OF_HEADER" << new_line;
+        prefix << comment_symbol << "HEADER_VERSION:0.1" << new_line;
+        prefix << comment_symbol << "FLAVOR:" << flavorToString(flavor) << new_line;
+        prefix << comment_symbol << "GENERATOR.NAME:Cura_SteamEngine" << new_line;
+        prefix << comment_symbol << "GENERATOR.VERSION:" << VERSION << new_line;
+        prefix << comment_symbol << "GENERATOR.BUILD_DATE:" << Date::getDate().toStringDashed() << new_line;
+        prefix << comment_symbol << "TARGET_MACHINE.NAME:" << machine_name << new_line;
 
         for (size_t extr_nr = 0; extr_nr < extruder_count; extr_nr++)
         {
@@ -175,28 +186,28 @@ std::string GCodeExport::getFileHeader(const std::vector<bool>& extruder_is_used
             {
                 continue;
             }
-            prefix << ";EXTRUDER_TRAIN." << extr_nr << ".INITIAL_TEMPERATURE:" << extruder_attr[extr_nr].initial_temp << new_line;
+            prefix << comment_symbol << "EXTRUDER_TRAIN." << extr_nr << ".INITIAL_TEMPERATURE:" << extruder_attr[extr_nr].initial_temp << new_line;
             if (filament_used.size() == extruder_count)
             {
-                prefix << ";EXTRUDER_TRAIN." << extr_nr << ".MATERIAL.VOLUME_USED:" << static_cast<int>(filament_used[extr_nr]) << new_line;
+                prefix << comment_symbol << "EXTRUDER_TRAIN." << extr_nr << ".MATERIAL.VOLUME_USED:" << static_cast<int>(filament_used[extr_nr]) << new_line;
             }
             if (mat_ids.size() == extruder_count && mat_ids[extr_nr] != "")
             {
-                prefix << ";EXTRUDER_TRAIN." << extr_nr << ".MATERIAL.GUID:" << mat_ids[extr_nr] << new_line;
+                prefix << comment_symbol << "EXTRUDER_TRAIN." << extr_nr << ".MATERIAL.GUID:" << mat_ids[extr_nr] << new_line;
             }
             const Settings& extruder_settings = Application::getInstance().current_slice->scene.extruders[extr_nr].settings;
-            prefix << ";EXTRUDER_TRAIN." << extr_nr << ".NOZZLE.DIAMETER:" << extruder_settings.get<double>("machine_nozzle_size") << new_line;
-            prefix << ";EXTRUDER_TRAIN." << extr_nr << ".NOZZLE.NAME:" << extruder_settings.get<std::string>("machine_nozzle_id") << new_line;
+            prefix << comment_symbol << "EXTRUDER_TRAIN." << extr_nr << ".NOZZLE.DIAMETER:" << extruder_settings.get<double>("machine_nozzle_size") << new_line;
+            prefix << comment_symbol << "EXTRUDER_TRAIN." << extr_nr << ".NOZZLE.NAME:" << extruder_settings.get<std::string>("machine_nozzle_id") << new_line;
         }
-        prefix << ";BUILD_PLATE.TYPE:" << machine_buildplate_type << new_line;
-        prefix << ";BUILD_PLATE.INITIAL_TEMPERATURE:" << initial_bed_temp << new_line;
+        prefix << comment_symbol << "BUILD_PLATE.TYPE:" << machine_buildplate_type << new_line;
+        prefix << comment_symbol << "BUILD_PLATE.INITIAL_TEMPERATURE:" << initial_bed_temp << new_line;
 
         if (print_time)
         {
-            prefix << ";PRINT.TIME:" << static_cast<int>(*print_time) << new_line;
+            prefix << comment_symbol << "PRINT.TIME:" << static_cast<int>(*print_time) << new_line;
         }
 
-        prefix << ";PRINT.GROUPS:" << Application::getInstance().current_slice->scene.mesh_groups.size() << new_line;
+        prefix << comment_symbol << "PRINT.GROUPS:" << Application::getInstance().current_slice->scene.mesh_groups.size() << new_line;
 
         if (total_bounding_box.min.x > total_bounding_box.max.x) //We haven't encountered any movement (yet). This probably means we're command-line slicing.
         {
@@ -204,27 +215,27 @@ std::string GCodeExport::getFileHeader(const std::vector<bool>& extruder_is_used
             total_bounding_box.min = Point3(0, 0, 0);
             total_bounding_box.max = Point3(10, 10, 10);
         }
-        prefix << ";PRINT.SIZE.MIN.X:" << INT2MM(total_bounding_box.min.x) << new_line;
-        prefix << ";PRINT.SIZE.MIN.Y:" << INT2MM(total_bounding_box.min.y) << new_line;
-        prefix << ";PRINT.SIZE.MIN.Z:" << INT2MM(total_bounding_box.min.z) << new_line;
-        prefix << ";PRINT.SIZE.MAX.X:" << INT2MM(total_bounding_box.max.x) << new_line;
-        prefix << ";PRINT.SIZE.MAX.Y:" << INT2MM(total_bounding_box.max.y) << new_line;
-        prefix << ";PRINT.SIZE.MAX.Z:" << INT2MM(total_bounding_box.max.z) << new_line;
-        prefix << ";END_OF_HEADER" << new_line;
+        prefix << comment_symbol << "PRINT.SIZE.MIN.X:" << INT2MM(total_bounding_box.min.x) << new_line;
+        prefix << comment_symbol << "PRINT.SIZE.MIN.Y:" << INT2MM(total_bounding_box.min.y) << new_line;
+        prefix << comment_symbol << "PRINT.SIZE.MIN.Z:" << INT2MM(total_bounding_box.min.z) << new_line;
+        prefix << comment_symbol << "PRINT.SIZE.MAX.X:" << INT2MM(total_bounding_box.max.x) << new_line;
+        prefix << comment_symbol << "PRINT.SIZE.MAX.Y:" << INT2MM(total_bounding_box.max.y) << new_line;
+        prefix << comment_symbol << "PRINT.SIZE.MAX.Z:" << INT2MM(total_bounding_box.max.z) << new_line;
+        prefix << comment_symbol << "END_OF_HEADER" << new_line;
         break;
     default:
-        prefix << ";FLAVOR:" << flavorToString(flavor) << new_line;
-        prefix << ";TIME:" << ((print_time)? static_cast<int>(*print_time) : 6666) << new_line;
+        prefix << comment_symbol << "FLAVOR:" << flavorToString(flavor) << new_line;
+        prefix << comment_symbol << "TIME:" << ((print_time)? static_cast<int>(*print_time) : 6666) << new_line;
         if (flavor == EGCodeFlavor::ULTIGCODE)
         {
-            prefix << ";MATERIAL:" << ((filament_used.size() >= 1)? static_cast<int>(filament_used[0]) : 6666) << new_line;
-            prefix << ";MATERIAL2:" << ((filament_used.size() >= 2)? static_cast<int>(filament_used[1]) : 0) << new_line;
+            prefix << comment_symbol << "MATERIAL:" << ((filament_used.size() >= 1)? static_cast<int>(filament_used[0]) : 6666) << new_line;
+            prefix << comment_symbol << "MATERIAL2:" << ((filament_used.size() >= 2)? static_cast<int>(filament_used[1]) : 0) << new_line;
 
-            prefix << ";NOZZLE_DIAMETER:" << Application::getInstance().current_slice->scene.extruders[0].settings.get<double>("machine_nozzle_size") << new_line;
+            prefix << comment_symbol << "NOZZLE_DIAMETER:" << Application::getInstance().current_slice->scene.extruders[0].settings.get<double>("machine_nozzle_size") << new_line;
         }
         else if (flavor == EGCodeFlavor::REPRAP || flavor == EGCodeFlavor::MARLIN)
         {
-            prefix << ";Filament used: ";
+            prefix << comment_symbol << "Filament used: ";
             if (filament_used.size() > 0)
             {
                 for (unsigned i = 0; i < filament_used.size(); ++i)
@@ -241,7 +252,7 @@ std::string GCodeExport::getFileHeader(const std::vector<bool>& extruder_is_used
                 prefix << "0m";
             }
             prefix << new_line;
-            prefix << ";Layer height: " << Application::getInstance().current_slice->scene.current_mesh_group->settings.get<double>("layer_height") << new_line;
+            prefix << comment_symbol << "Layer height: " << Application::getInstance().current_slice->scene.current_mesh_group->settings.get<double>("layer_height") << new_line;
         }
     }
 
@@ -456,12 +467,12 @@ void GCodeExport::updateTotalPrintTime()
 
 void GCodeExport::writeComment(const std::string& comment)
 {
-    *output_stream << ";";
+    *output_stream << comment_symbol;
     for (unsigned int i = 0; i < comment.length(); i++)
     {
         if (comment[i] == '\n')
         {
-            *output_stream << new_line << ";";
+            *output_stream << new_line << comment_symbol;
         }
         else
         {
@@ -473,7 +484,7 @@ void GCodeExport::writeComment(const std::string& comment)
 
 void GCodeExport::writeTimeComment(const Duration time)
 {
-    *output_stream << ";TIME_ELAPSED:" << time << new_line;
+    *output_stream << comment_symbol << "TIME_ELAPSED:" << time << new_line;
 }
 
 void GCodeExport::writeTypeComment(const PrintFeatureType& type)
@@ -481,31 +492,31 @@ void GCodeExport::writeTypeComment(const PrintFeatureType& type)
     switch (type)
     {
         case PrintFeatureType::OuterWall:
-            *output_stream << ";TYPE:WALL-OUTER" << new_line;
+            *output_stream << comment_symbol << "TYPE:WALL-OUTER" << new_line;
             break;
         case PrintFeatureType::InnerWall:
-            *output_stream << ";TYPE:WALL-INNER" << new_line;
+            *output_stream << comment_symbol << "TYPE:WALL-INNER" << new_line;
             break;
         case PrintFeatureType::Skin:
-            *output_stream << ";TYPE:SKIN" << new_line;
+            *output_stream << comment_symbol << "TYPE:SKIN" << new_line;
             break;
         case PrintFeatureType::Support:
-            *output_stream << ";TYPE:SUPPORT" << new_line;
+            *output_stream << comment_symbol << "TYPE:SUPPORT" << new_line;
             break;
         case PrintFeatureType::SkirtBrim:
-            *output_stream << ";TYPE:SKIRT" << new_line;
+            *output_stream << comment_symbol << "TYPE:SKIRT" << new_line;
             break;
         case PrintFeatureType::Infill:
-            *output_stream << ";TYPE:FILL" << new_line;
+            *output_stream << comment_symbol << "TYPE:FILL" << new_line;
             break;
         case PrintFeatureType::SupportInfill:
-            *output_stream << ";TYPE:SUPPORT" << new_line;
+            *output_stream << comment_symbol << "TYPE:SUPPORT" << new_line;
             break;
         case PrintFeatureType::SupportInterface:
-            *output_stream << ";TYPE:SUPPORT-INTERFACE" << new_line;
+            *output_stream << comment_symbol << "TYPE:SUPPORT-INTERFACE" << new_line;
             break;
         case PrintFeatureType::PrimeTower:
-            *output_stream << ";TYPE:PRIME-TOWER" << new_line;
+            *output_stream << comment_symbol << "TYPE:PRIME-TOWER" << new_line;
             break;
         case PrintFeatureType::MoveCombing:
         case PrintFeatureType::MoveRetraction:
@@ -519,12 +530,12 @@ void GCodeExport::writeTypeComment(const PrintFeatureType& type)
 
 void GCodeExport::writeLayerComment(const LayerIndex layer_nr)
 {
-    *output_stream << ";LAYER:" << layer_nr << new_line;
+    *output_stream << comment_symbol << "LAYER:" << layer_nr << new_line;
 }
 
 void GCodeExport::writeLayerCountComment(const size_t layer_count)
 {
-    *output_stream << ";LAYER_COUNT:" << layer_count << new_line;
+    *output_stream << comment_symbol << "LAYER_COUNT:" << layer_count << new_line;
 }
 
 void GCodeExport::writeLine(const char* line)
@@ -534,6 +545,7 @@ void GCodeExport::writeLine(const char* line)
 
 void GCodeExport::writeExtrusionMode(bool set_relative_extrusion_mode)
 {
+    if (flavor == EGCodeFlavor::SLM) return;
     if (set_relative_extrusion_mode)
     {
         *output_stream << "M83 ;relative extrusion mode" << new_line;
@@ -678,7 +690,19 @@ void GCodeExport::writeTravel(const coord_t& x, const coord_t& y, const coord_t&
     const double layer_height = Application::getInstance().current_slice->scene.current_mesh_group->settings.get<double>("layer_height");
     Application::getInstance().communication->sendLineTo(travel_move_type, Point(x, y), display_width, layer_height, speed);
 
-    *output_stream << "G0";
+    if (flavor == EGCodeFlavor::SLM) {
+        if (current_laser) {
+            *output_stream << "GALVO LASEROVERRIDE X OFF" << new_line;
+            current_laser = false;
+        }
+        if (speed) {
+            *output_stream << "G00";
+        } else {
+            *output_stream << "G08 G01";
+        }
+    } else {
+        *output_stream << "G0";
+    }
     writeFXYZE(speed, x, y, z, current_e_value, travel_move_type);
 }
 
@@ -741,18 +765,26 @@ void GCodeExport::writeExtrusion(const int x, const int y, const int z, const Ve
     if (update_extrusion_offset && (extrusion_offset != current_e_offset))
     {
         current_e_offset = extrusion_offset;
-        *output_stream << ";FLOW_RATE_COMPENSATED_OFFSET = " << current_e_offset << new_line;
+        *output_stream << comment_symbol << "FLOW_RATE_COMPENSATED_OFFSET = " << current_e_offset << new_line;
     }
 
     double new_e_value = current_e_value + extrusion_per_mm * diff.vSizeMM();
 
-    *output_stream << "G1";
+    if (flavor == EGCodeFlavor::SLM) {
+        if (!current_laser) {
+            *output_stream << "GALVO LASEROVERRIDE X ON" << new_line;
+            current_laser = true;
+        }
+        *output_stream << "G08 G01";
+    } else {
+        *output_stream << "G1";
+    }
     writeFXYZE(speed, x, y, z, new_e_value, feature);
 }
 
 void GCodeExport::writeFXYZE(const Velocity& speed, const int x, const int y, const int z, const double e, const PrintFeatureType& feature)
 {
-    if (currentSpeed != speed)
+    if (flavor != EGCodeFlavor::SLM && currentSpeed != speed)
     {
         *output_stream << " F" << PrecisionedDouble{1, speed * 60};
         currentSpeed = speed;
@@ -762,11 +794,11 @@ void GCodeExport::writeFXYZE(const Velocity& speed, const int x, const int y, co
     total_bounding_box.include(Point3(gcode_pos.X, gcode_pos.Y, z));
 
     *output_stream << " X" << MMtoStream{gcode_pos.X} << " Y" << MMtoStream{gcode_pos.Y};
-    if (z != currentPosition.z)
+    if (flavor != EGCodeFlavor::SLM && z != currentPosition.z)
     {
         *output_stream << " Z" << MMtoStream{z};
     }
-    if (e + current_e_offset != current_e_value)
+    if (flavor != EGCodeFlavor::SLM && e + current_e_offset != current_e_value)
     {
         const double output_e = (relative_extrusion)? e + current_e_offset - current_e_value : e + current_e_offset;
         *output_stream << " " << extruder_attr[current_extruder].extruderCharacter << PrecisionedDouble{5, output_e};
@@ -1079,6 +1111,7 @@ void GCodeExport::setExtruderFanNumber(int extruder)
 
 void GCodeExport::writeFanCommand(double speed)
 {
+    if (flavor == EGCodeFlavor::SLM) return;
     if (std::abs(current_fan_speed - speed) < 0.1)
     {
         return;

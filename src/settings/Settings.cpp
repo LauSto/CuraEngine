@@ -274,6 +274,10 @@ template<> EGCodeFlavor Settings::get<EGCodeFlavor>(const std::string& key) cons
     {
         return EGCodeFlavor::REPRAP;
     }
+    else if (value == "SLM")
+    {
+        return EGCodeFlavor::SLM;
+    }
     //Default:
     return EGCodeFlavor::MARLIN;
 }

@@ -1333,6 +1333,10 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
     gcode.setLayerNr(layer_nr);
     
     gcode.writeLayerComment(layer_nr);
+    if (gcode.getFlavor() == EGCodeFlavor::SLM) {
+        gcode.writeCode("$L1Fin=0");
+        gcode.writeCode("GALVO LASEROVERRIDE X OFF");
+    }
 
     // flow-rate compensation
     const Settings& mesh_group_settings = Application::getInstance().current_slice->scene.current_mesh_group->settings;
@@ -1587,7 +1591,15 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
 
         extruder_plan.handleAllRemainingInserts(gcode);
     } // extruder plans /\  .
-    
+
+    if (gcode.getFlavor() == EGCodeFlavor::SLM) {
+        gcode.writeCode("$L1Fin=1");
+        gcode.writeCode("WAIT($L1Fin==1)-1");
+        gcode.writeCode("$PowderDeposition=1");
+        gcode.writeCode("WAIT($PowderDeposition==0)-1");
+        gcode.writeCode("DWELL 0.500");
+    }
+
     gcode.updateTotalPrintTime();
 }
 
@@ -1755,12 +1767,14 @@ void LayerPlan::skywritePaths(coord_t distance, AngleDegrees angle)
 {
     std::vector<GCodePath> skywrite;
     GCodePath fastPath(configs_storage.travel_config_per_extruder[getExtruder()], current_mesh, SpaceFillType::None, 1.0, false, 1);
-    GCodePath slowPath(configs_storage.travel_config_per_extruder[getExtruder()], current_mesh, SpaceFillType::None, 1.0, false, 0.1);
+    GCodePath slowPath(configs_storage.travel_config_per_extruder[getExtruder()], current_mesh, SpaceFillType::None, 1.0, false, 0);
     double maxDotProduct = cos(M_PI * angle / 180) * distance * distance;
 
     for (ExtruderPlan& extr_plan : extruder_plans) {
         for (auto path = extr_plan.paths.begin(); path != extr_plan.paths.end(); path++) {
             if (path->isTravelPath()) continue;
+
+            fastPath.mesh_id = slowPath.mesh_id = path->mesh_id;
 
             Point extrudeBegin = (path - 1)->points.back();
             Point extrudeEnd = path->points.front();
@@ -1795,8 +1809,6 @@ void LayerPlan::skywritePaths(coord_t distance, AngleDegrees angle)
             if (path == extr_plan.paths.end()) break;
         }
 
-        // first travel move in layer must be preserved
-        skywrite.insert(skywrite.begin(), extr_plan.paths.front());
         extr_plan.paths = skywrite;
     }
 }

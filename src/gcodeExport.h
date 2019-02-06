@@ -77,6 +77,7 @@ private:
 
     std::ostream* output_stream;
     std::string new_line;
+    std::string comment_symbol;
 
     double current_e_value; //!< The last E value written to gcode (in mm or mm^3)
 
@@ -91,6 +92,7 @@ private:
     Acceleration current_travel_acceleration; //!< The current acceleration (in mm/s^2) used for travel moves for those gcode flavors that have separate print and travel accelerations
     Velocity current_jerk; //!< The current jerk in the XY direction (in mm/s^3)
     Velocity current_max_z_feedrate; //!< The current max z speed (in mm/s)
+    bool current_laser; //!< The current laser state for SLM
 
     AABB3D total_bounding_box; //!< The bounding box of all g-code.
 
