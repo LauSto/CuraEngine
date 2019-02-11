@@ -873,6 +873,108 @@
                     "enabled":"z_seam_type == 'back'",
                     "limit_to_extruder":"wall_0_extruder_nr",
                     "settable_per_mesh":true
+                },
+				"roofing_layer_count":{
+                    "label":"Top Surface Skin Layers",
+                    "description":"The number of top most skin layers. Usually only one top most layer is sufficient to generate higher quality top surfaces.",
+                    "default_value":0,
+                    "minimum_value":"0",
+                    "type":"int",
+                    "value":"0",
+                    "limit_to_extruder":"roofing_extruder_nr",
+                    "settable_per_mesh":true
+                },
+				"top_layers":{
+					"label":"Top Layers",
+					"description":"The number of top layers. When calculated by the top thickness, this value is rounded to a whole number.",
+					"default_value":0,
+					"minimum_value":"0",
+					"maximum_value_warning":"100",
+					"type":"int",
+					"minimum_value_warning":"2",
+					"limit_to_extruder":"top_bottom_extruder_nr",
+					"settable_per_mesh":true
+				},
+				"bottom_layers":{
+					"label":"Bottom Layers",
+					"description":"The number of bottom layers. When calculated by the bottom thickness, this value is rounded to a whole number.",
+					"minimum_value":"0",
+					"default_value":0,
+					"type":"int",
+					"limit_to_extruder":"top_bottom_extruder_nr",
+					"settable_per_mesh":true
+				},
+				"skin_line_width":{
+                    "label":"Top/Bottom Line Width",
+                    "description":"Width of a single top/bottom line.",
+                    "unit":"mm",
+                    "minimum_value":"0.001",
+                    "default_value":0.1,
+                    "type":"float",
+                    "value":"line_width",
+					"enabled":"top_layers > 0 or bottom_layers > 0",
+                    "limit_to_extruder":"top_bottom_extruder_nr",
+                    "settable_per_mesh":true
+                },
+				"roofing_line_width":{
+                    "label":"Top Surface Skin Line Width",
+                    "description":"Width of a single line of the areas at the top of the print.",
+                    "unit":"mm",
+                    "minimum_value":"0.001",
+                    "default_value":0.1,
+                    "type":"float",
+                    "value":"skin_line_width",
+                    "limit_to_extruder":"roofing_extruder_nr",
+                    "settable_per_mesh":true,
+                    "enabled":"roofing_layer_count > 0 and top_layers > 0"
+                },
+                "roofing_pattern":{
+                    "label":"Top Surface Skin Pattern",
+                    "description":"The pattern of the top most layers.",
+                    "type":"enum",
+                    "options":{
+                        "lines":"Lines",
+                        "concentric":"Concentric",
+                        "zigzag":"Zig Zag"
+                    },
+                    "default_value":"lines",
+                    "value":"top_bottom_pattern",
+                    "limit_to_extruder":"roofing_extruder_nr",
+                    "settable_per_mesh":true,
+                    "enabled":"roofing_layer_count > 0 and top_layers > 0"
+                },
+				"top_bottom_pattern":{
+                    "label":"Top/Bottom Pattern",
+                    "description":"The pattern of the top/bottom layers.",
+                    "type":"enum",
+                    "options":{
+                        "lines":"Lines",
+                        "concentric":"Concentric",
+                        "zigzag":"Zig Zag"
+                    },
+                    "default_value":"lines",
+                    "enabled":"top_layers > 0 or bottom_layers > 0",
+                    "limit_to_extruder":"top_bottom_extruder_nr",
+                    "settable_per_mesh":true
+                },
+                "roofing_angles":{
+                    "label":"Top Surface Skin Line Directions",
+                    "description":"A list of integer line directions to use when the top surface skin layers use the lines or zig zag pattern. Elements from the list are used sequentially as the layers progress and when the end of the list is reached, it starts at the beginning again. The list items are separated by commas and the whole list is contained in square brackets. Default is an empty list which means use the traditional default angles (45 and 135 degrees).",
+                    "type":"[int]",
+                    "default_value":"[ ]",
+                    "value":"skin_angles",
+                    "enabled":"roofing_pattern != 'concentric' and roofing_layer_count > 0 and top_layers > 0",
+                    "limit_to_extruder":"roofing_extruder_nr",
+                    "settable_per_mesh":true
+                },
+				"skin_angles":{
+                    "label":"Top/Bottom Line Directions",
+                    "description":"A list of integer line directions to use when the top/bottom layers use the lines or zig zag pattern. Elements from the list are used sequentially as the layers progress and when the end of the list is reached, it starts at the beginning again. The list items are separated by commas and the whole list is contained in square brackets. Default is an empty list which means use the traditional default angles (45 and 135 degrees).",
+                    "type":"[int]",
+                    "default_value":"[ ]",
+                    "enabled":"(top_layers > 0 or bottom_layers > 0) and top_bottom_pattern != 'concentric'",
+                    "limit_to_extruder":"top_bottom_extruder_nr",
+                    "settable_per_mesh":true
                 }
             }
         },
@@ -1027,6 +1129,56 @@
                     "default_value":true,
                     "enabled":"infill_sparse_density > 0 and wall_x_extruder_nr == infill_extruder_nr",
                     "settable_per_mesh":true
+                },
+				"infill_overlap":{
+                    "label":"Infill Overlap Percentage",
+                    "description":"The amount of overlap between the infill and the walls as a percentage of the infill line width. A slight overlap allows the walls to connect firmly to the infill.",
+                    "unit":"%",
+                    "type":"float",
+                    "default_value":0,
+                    "value":"10 if infill_sparse_density < 95 and infill_pattern != 'concentric' else 0",
+                    "minimum_value_warning":"-50",
+                    "maximum_value_warning":"100",
+                    "limit_to_extruder":"infill_extruder_nr",
+                    "settable_per_mesh":true,
+                    "children":{
+                        "infill_overlap_mm":{
+                            "label":"Infill Overlap",
+                            "description":"The amount of overlap between the infill and the walls. A slight overlap allows the walls to connect firmly to the infill.",
+                            "unit":"mm",
+                            "type":"float",
+                            "minimum_value_warning":"-0.5 * machine_nozzle_size",
+                            "maximum_value_warning":"machine_nozzle_size",
+                            "value":"0.5 * (infill_line_width + (wall_line_width_x if wall_line_count > 1 else wall_line_width_0)) * infill_overlap / 100 if infill_sparse_density < 95 and infill_pattern != 'concentric' else 0",
+                            "enabled":false,
+                            "settable_per_mesh":true
+                        }
+                    }
+                },
+                "skin_overlap":{
+                    "label":"Skin Overlap Percentage",
+                    "description":"The amount of overlap between the skin and the walls as a percentage of the skin line width. A slight overlap allows the walls to connect firmly to the skin. This is a percentage of the average line widths of the skin lines and the innermost wall.",
+                    "unit":"%",
+                    "type":"float",
+                    "default_value":0,
+                    "minimum_value_warning":"-50",
+                    "maximum_value_warning":"100",
+                    "value":"5 if top_bottom_pattern != 'concentric' else 0",
+                    "limit_to_extruder":"top_bottom_extruder_nr",
+                    "settable_per_mesh":true,
+                    "children":{
+                        "skin_overlap_mm":{
+                            "label":"Skin Overlap",
+                            "description":"The amount of overlap between the skin and the walls. A slight overlap allows the walls to connect firmly to the skin.",
+                            "unit":"mm",
+                            "type":"float",
+                            "default_value":0.0,
+                            "minimum_value_warning":"-0.5 * machine_nozzle_size",
+                            "maximum_value_warning":"machine_nozzle_size",
+                            "value":"0.5 * (skin_line_width + (wall_line_width_x if wall_line_count > 1 else wall_line_width_0)) * skin_overlap / 100 if top_bottom_pattern != 'concentric' else 0",
+                            "settable_per_mesh":true
+                        }
+                    }
                 }
             }
         },
@@ -1052,10 +1204,15 @@
                     "type":"float",
                     "minimum_value":"0.1",
                     "default_value":350,
-                    "settable_per_mesh":true,
-                    "children":{
-
-                    }
+                    "settable_per_mesh":true                    
+                },
+				"laser_power":{
+                    "label":"Laser Power",
+                    "description":"The value of the laser power which is goven to the machine.",
+                    "type":"int",
+                    "minimum_value":"0",
+                    "default_value":1500,
+                    "settable_per_mesh":true                    
                 }
             }
         },
@@ -1909,7 +2066,319 @@
             "icon":"category_adhesion",
             "description":"Adhesion",
             "children":{
-
+				"adhesion_type":{
+                    "label":"Build Plate Adhesion Type",
+                    "description":"Different options that help to improve both priming your extrusion and adhesion to the build plate. Brim adds a single layer flat area around the base of your model to prevent warping. Raft adds a thick grid with a roof below the model. Skirt is a line printed around the model, but not connected to the model.",
+                    "type":"enum",
+                    "options":{
+                        "brim":"Brim",
+                        "raft":"Raft",
+                        "none":"None"
+                    },
+                    "default_value":"none",
+                    "resolve":"extruderValue(adhesion_extruder_nr, 'adhesion_type')",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":false
+                },
+                "adhesion_extruder_nr":{
+                    "label":"Build Plate Adhesion Extruder",
+                    "description":"The extruder train to use for printing the skirt/brim/raft. This is used in multi-extrusion.",
+                    "type":"extruder",
+                    "default_value":"0",
+                    "value":"defaultExtruderPosition()",
+                    "enabled":"extruders_enabled_count > 1 and resolveOrValue('adhesion_type') != 'none'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":false
+                },
+                "skirt_line_count":{
+                    "label":"Skirt Line Count",
+                    "description":"Multiple skirt lines help to prime your extrusion better for small models. Setting this to 0 will disable the skirt.",
+                    "type":"int",
+                    "default_value":1,
+                    "minimum_value":"0",
+                    "maximum_value_warning":"10",
+                    "enabled":"resolveOrValue('adhesion_type') == 'skirt'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "skirt_gap":{
+                    "label":"Skirt Distance",
+                    "description":"The horizontal distance between the skirt and the first layer of the print.\nThis is the minimum distance. Multiple skirt lines will extend outwards from this distance.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":3,
+                    "minimum_value_warning":"max(extruderValues('machine_nozzle_size'))",
+                    "maximum_value_warning":"10",
+                    "enabled":"resolveOrValue('adhesion_type') == 'skirt'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "skirt_brim_minimal_length":{
+                    "label":"Skirt/Brim Minimum Length",
+                    "description":"The minimum length of the skirt or brim. If this length is not reached by all skirt or brim lines together, more skirt or brim lines will be added until the minimum length is reached. Note: If the line count is set to 0 this is ignored.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":250,
+                    "minimum_value":"0",
+                    "minimum_value_warning":"25",
+                    "maximum_value_warning":"2500",
+                    "enabled":"resolveOrValue('adhesion_type') == 'skirt' or resolveOrValue('adhesion_type') == 'brim'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true
+                },
+                "brim_width":{
+                    "label":"Brim Width",
+                    "description":"The distance from the model to the outermost brim line. A larger brim enhances adhesion to the build plate, but also reduces the effective print area.",
+                    "type":"float",
+                    "unit":"mm",
+                    "default_value":5.0,
+                    "minimum_value":"0.0",
+                    "maximum_value_warning":"50.0",
+                    "enabled":"resolveOrValue('adhesion_type') == 'brim'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr",
+                    "children":{
+                        "brim_line_count":{
+                            "label":"Brim Line Count",
+                            "description":"The number of lines used for a brim. More brim lines enhance adhesion to the build plate, but also reduces the effective print area.",
+                            "type":"int",
+                            "default_value":20,
+                            "minimum_value":"0",
+                            "maximum_value_warning":"50 / skirt_brim_line_width",
+                            "value":"math.ceil(brim_width / (skirt_brim_line_width * initial_layer_line_width_factor / 100.0))",
+                            "enabled":"resolveOrValue('adhesion_type') == 'brim'",
+                            "settable_per_mesh":false,
+                            "settable_per_extruder":true,
+                            "limit_to_extruder":"adhesion_extruder_nr"
+                        }
+                    }
+                },
+				"skirt_brim_line_width":{
+                    "label":"Skirt/Brim Line Width",
+                    "description":"Width of a single skirt or brim line.",
+                    "unit":"mm",
+                    "minimum_value":"0.001",
+                    "default_value":0.1,
+                    "type":"float",
+                    "value":"line_width",
+                    "enabled":"resolveOrValue('adhesion_type') == 'brim'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true
+                },
+                "brim_replaces_support":{
+                    "label":"Brim Replaces Support",
+                    "description":"Enforce brim to be printed around the model even if that space would otherwise be occupied by support. This replaces some regions of the first layer of support by brim regions.",
+                    "type":"bool",
+                    "default_value":true,
+                    "enabled":"resolveOrValue('adhesion_type') == 'brim' and support_enable",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"support_infill_extruder_nr"
+                },
+                "brim_outside_only":{
+                    "label":"Brim Only on Outside",
+                    "description":"Only print the brim on the outside of the model. This reduces the amount of brim you need to remove afterwards, while it doesn't reduce the bed adhesion that much.",
+                    "type":"bool",
+                    "default_value":true,
+                    "enabled":"resolveOrValue('adhesion_type') == 'brim'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "raft_margin":{
+                    "label":"Raft Extra Margin",
+                    "description":"If the raft is enabled, this is the extra raft area around the model which is also given a raft. Increasing this margin will create a stronger raft while using more material and leaving less area for your print.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":5,
+                    "minimum_value_warning":"raft_interface_line_width",
+                    "maximum_value_warning":"20",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "limit_to_extruder":"adhesion_extruder_nr",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true
+                },
+                "raft_smoothing":{
+                    "label":"Raft Smoothing",
+                    "description":"This setting controls how much inner corners in the raft outline are rounded. Inward corners are rounded to a semi circle with a radius equal to the value given here. This setting also removes holes in the raft outline which are smaller than such a circle.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":0,
+                    "minimum_value":"0",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "limit_to_extruder":"adhesion_extruder_nr",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true
+                },
+                "raft_airgap":{
+                    "label":"Raft Air Gap",
+                    "description":"The gap between the final raft layer and the first layer of the model. Only the first layer is raised by this amount to lower the bonding between the raft layer and the model. Makes it easier to peel off the raft.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":0,
+                    "minimum_value":"0",
+                    "maximum_value_warning":"min(extruderValues('machine_nozzle_size'))",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "layer_0_z_overlap":{
+                    "label":"Initial Layer Z Overlap",
+                    "description":"Make the first and second layer of the model overlap in the Z direction to compensate for the filament lost in the airgap. All models above the first model layer will be shifted down by this amount.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":0,
+                    "value":"raft_airgap / 2",
+                    "minimum_value":"0",
+                    "maximum_value_warning":"raft_airgap",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "raft_surface_layers":{
+                    "label":"Raft Top Layers",
+                    "description":"The number of top layers on top of the 2nd raft layer. These are fully filled layers that the model sits on. 2 layers result in a smoother top surface than 1.",
+                    "type":"int",
+                    "default_value":2,
+                    "minimum_value":"0",
+                    "maximum_value_warning":"20",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "raft_surface_thickness":{
+                    "label":"Raft Top Layer Thickness",
+                    "description":"Layer thickness of the top raft layers.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":0.03,
+                    "value":"resolveOrValue('layer_height')",
+                    "minimum_value":"0.001",
+                    "minimum_value_warning":"0.04",
+                    "maximum_value_warning":"0.75 * machine_nozzle_size",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "raft_surface_line_width":{
+                    "label":"Raft Top Line Width",
+                    "description":"Width of the lines in the top surface of the raft. These can be thin lines so that the top of the raft becomes smooth.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":0.1,
+                    "value":"line_width",
+                    "minimum_value":"0.001",
+                    "minimum_value_warning":"machine_nozzle_size * 0.1",
+                    "maximum_value_warning":"machine_nozzle_size * 2",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "raft_surface_line_spacing":{
+                    "label":"Raft Top Spacing",
+                    "description":"The distance between the raft lines for the top raft layers. The spacing should be equal to the line width, so that the surface is solid.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":0.1,
+                    "minimum_value":"0",
+                    "minimum_value_warning":"raft_surface_line_width",
+                    "maximum_value_warning":"raft_surface_line_width * 3",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "value":"raft_surface_line_width",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "raft_interface_thickness":{
+                    "label":"Raft Middle Thickness",
+                    "description":"Layer thickness of the middle raft layer.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":0.15,
+                    "value":"resolveOrValue('layer_height') * 2",
+                    "minimum_value":"0.001",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "raft_interface_line_width":{
+                    "label":"Raft Middle Line Width",
+                    "description":"Width of the lines in the middle raft layer. Making the second layer extrude more causes the lines to stick to the build plate.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":0.1,
+                    "value":"line_width",
+                    "minimum_value":"0.001",
+                    "minimum_value_warning":"machine_nozzle_size * 0.5",
+                    "maximum_value_warning":"machine_nozzle_size * 3",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "raft_interface_line_spacing":{
+                    "label":"Raft Middle Spacing",
+                    "description":"The distance between the raft lines for the middle raft layer. The spacing of the middle should be quite wide, while being dense enough to support the top raft layers.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":0.1,
+                    "value":"raft_interface_line_width",
+                    "minimum_value":"0",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "raft_base_thickness":{
+                    "label":"Raft Base Thickness",
+                    "description":"Layer thickness of the base raft layer. This should be a thick layer which sticks firmly to the printer build plate.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":0.3,
+                    "value":"resolveOrValue('layer_height_0')",
+                    "minimum_value":"0.001",
+                    "minimum_value_warning":"0.04",
+                    "maximum_value_warning":"0.75 * raft_base_line_width",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "raft_base_line_width":{
+                    "label":"Raft Base Line Width",
+                    "description":"Width of the lines in the base raft layer. These should be thick lines to assist in build plate adhesion.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value":0.1,
+                    "minimum_value":"0.001",
+                    "value":"machine_nozzle_size",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                },
+                "raft_base_line_spacing":{
+                    "label":"Raft Base Line Spacing",
+                    "description":"The distance between the raft lines for the base raft layer. Wide spacing makes for easy removal of the raft from the build plate.",
+                    "unit":"mm",
+                    "type":"float",
+                    "default_value": 0.1,
+                    "value":"raft_base_line_width",
+                    "minimum_value":"0",
+                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
+                    "settable_per_mesh":false,
+                    "settable_per_extruder":true,
+                    "limit_to_extruder":"adhesion_extruder_nr"
+                }
             }
         },
         "dual":{
@@ -2200,45 +2669,6 @@
                         "inclusive":"Inclusive"
                     },
                     "default_value":"middle",
-                    "settable_per_mesh":true
-                },
-                "roofing_line_width":{
-                    "label":"Top Surface Skin Line Width",
-                    "description":"Width of a single line of the areas at the top of the print.",
-                    "unit":"mm",
-                    "minimum_value":"0.001",
-                    "minimum_value_warning":"0.1 + 0.4 * machine_nozzle_size",
-                    "maximum_value_warning":"2 * machine_nozzle_size",
-                    "default_value":0.4,
-                    "type":"float",
-                    "value":"skin_line_width",
-                    "limit_to_extruder":"roofing_extruder_nr",
-                    "settable_per_mesh":true,
-                    "enabled":"roofing_layer_count > 0 and top_layers > 0"
-                },
-                "roofing_pattern":{
-                    "label":"Top Surface Skin Pattern",
-                    "description":"The pattern of the top most layers.",
-                    "type":"enum",
-                    "options":{
-                        "lines":"Lines",
-                        "concentric":"Concentric",
-                        "zigzag":"Zig Zag"
-                    },
-                    "default_value":"lines",
-                    "value":"top_bottom_pattern",
-                    "limit_to_extruder":"roofing_extruder_nr",
-                    "settable_per_mesh":true,
-                    "enabled":"roofing_layer_count > 0 and top_layers > 0"
-                },
-                "roofing_angles":{
-                    "label":"Top Surface Skin Line Directions",
-                    "description":"A list of integer line directions to use when the top surface skin layers use the lines or zig zag pattern. Elements from the list are used sequentially as the layers progress and when the end of the list is reached, it starts at the beginning again. The list items are separated by commas and the whole list is contained in square brackets. Default is an empty list which means use the traditional default angles (45 and 135 degrees).",
-                    "type":"[int]",
-                    "default_value":"[ ]",
-                    "value":"skin_angles",
-                    "enabled":"roofing_pattern != 'concentric' and roofing_layer_count > 0 and top_layers > 0",
-                    "limit_to_extruder":"roofing_extruder_nr",
                     "settable_per_mesh":true
                 },
                 "infill_enable_travel_optimization":{
@@ -3308,20 +3738,6 @@
             "description":"Settings that are unused for SLM but still required by CuraEngine.",
             "type":"category",
             "children":{
-                "skin_line_width":{
-                    "label":"Top/Bottom Line Width",
-                    "description":"Width of a single top/bottom line.",
-                    "unit":"mm",
-                    "minimum_value":"0.001",
-                    "minimum_value_warning":"0.1 + 0.4 * machine_nozzle_size",
-                    "maximum_value_warning":"2 * machine_nozzle_size",
-                    "default_value":0.1,
-                    "type":"float",
-                    "value":"line_width",
-                    "enabled":false,
-                    "limit_to_extruder":"top_bottom_extruder_nr",
-                    "settable_per_mesh":true
-                },
                 "infill_line_width":{
                     "label":"Infill Line Width",
                     "description":"Width of a single infill line.",
@@ -3335,20 +3751,6 @@
                     "enabled":false,
                     "limit_to_extruder":"infill_extruder_nr",
                     "settable_per_mesh":true
-                },
-                "skirt_brim_line_width":{
-                    "label":"Skirt/Brim Line Width",
-                    "description":"Width of a single skirt or brim line.",
-                    "unit":"mm",
-                    "minimum_value":"0.001",
-                    "minimum_value_warning":"0.1 + 0.4 * machine_nozzle_size",
-                    "maximum_value_warning":"3 * machine_nozzle_size",
-                    "default_value":0.1,
-                    "type":"float",
-                    "value":"line_width",
-                    "enabled":false,
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true
                 },
                 "support_line_width":{
                     "label":"Support Line Width",
@@ -3513,18 +3915,6 @@
                     "settable_globally":true,
                     "enabled":"extruders_enabled_count > 1 and max(extruderValues('roofing_layer_count')) > 0 and max(extruderValues('top_layers')) > 0"
                 },
-                "roofing_layer_count":{
-                    "label":"Top Surface Skin Layers",
-                    "description":"The number of top most skin layers. Usually only one top most layer is sufficient to generate higher quality top surfaces.",
-                    "default_value":0,
-                    "minimum_value":"0",
-                    "maximum_value_warning":"top_layers - 1",
-                    "type":"int",
-                    "value":"0",
-                    "enabled":false,
-                    "limit_to_extruder":"roofing_extruder_nr",
-                    "settable_per_mesh":true
-                },
                 "top_bottom_extruder_nr":{
                     "label":"Top/Bottom Extruder",
                     "description":"The extruder train used for printing the top and bottom skin. This is used in multi-extrusion.",
@@ -3563,18 +3953,7 @@
                             "limit_to_extruder":"top_bottom_extruder_nr",
                             "settable_per_mesh":true,
                             "children":{
-                                "top_layers":{
-                                    "label":"Top Layers",
-                                    "description":"The number of top layers. When calculated by the top thickness, this value is rounded to a whole number.",
-                                    "default_value":0,
-                                    "minimum_value":"0",
-                                    "maximum_value_warning":"100",
-                                    "type":"int",
-                                    "minimum_value_warning":"2",
-                                    "enabled":false,
-                                    "limit_to_extruder":"top_bottom_extruder_nr",
-                                    "settable_per_mesh":true
-                                }
+                                
                             }
                         },
                         "bottom_thickness":{
@@ -3591,34 +3970,10 @@
                             "limit_to_extruder":"top_bottom_extruder_nr",
                             "settable_per_mesh":true,
                             "children":{
-                                "bottom_layers":{
-                                    "label":"Bottom Layers",
-                                    "description":"The number of bottom layers. When calculated by the bottom thickness, this value is rounded to a whole number.",
-                                    "minimum_value":"0",
-                                    "minimum_value_warning":"2",
-                                    "default_value":0,
-                                    "type":"int",
-                                    "enabled":false,
-                                    "limit_to_extruder":"top_bottom_extruder_nr",
-                                    "settable_per_mesh":true
-                                }
+                                
                             }
                         }
                     }
-                },
-                "top_bottom_pattern":{
-                    "label":"Top/Bottom Pattern",
-                    "description":"The pattern of the top/bottom layers.",
-                    "type":"enum",
-                    "options":{
-                        "lines":"Lines",
-                        "concentric":"Concentric",
-                        "zigzag":"Zig Zag"
-                    },
-                    "default_value":"lines",
-                    "enabled":"top_layers > 0 or bottom_layers > 0",
-                    "limit_to_extruder":"top_bottom_extruder_nr",
-                    "settable_per_mesh":true
                 },
                 "top_bottom_pattern_0":{
                     "label":"Bottom Pattern Initial Layer",
@@ -3641,15 +3996,6 @@
                     "type":"bool",
                     "default_value":false,
                     "enabled":"(top_layers > 0 or bottom_layers > 0) and top_bottom_pattern == 'concentric'",
-                    "limit_to_extruder":"top_bottom_extruder_nr",
-                    "settable_per_mesh":true
-                },
-                "skin_angles":{
-                    "label":"Top/Bottom Line Directions",
-                    "description":"A list of integer line directions to use when the top/bottom layers use the lines or zig zag pattern. Elements from the list are used sequentially as the layers progress and when the end of the list is reached, it starts at the beginning again. The list items are separated by commas and the whole list is contained in square brackets. Default is an empty list which means use the traditional default angles (45 and 135 degrees).",
-                    "type":"[int]",
-                    "default_value":"[ ]",
-                    "enabled":"(top_layers > 0 or bottom_layers > 0) and top_bottom_pattern != 'concentric'",
                     "limit_to_extruder":"top_bottom_extruder_nr",
                     "settable_per_mesh":true
                 },
@@ -3977,60 +4323,6 @@
                     "enabled":"infill_sparse_density > 0 and infill_pattern == 'cubicsubdiv'",
                     "limit_to_extruder":"infill_extruder_nr",
                     "settable_per_mesh":true
-                },
-                "infill_overlap":{
-                    "label":"Infill Overlap Percentage",
-                    "description":"The amount of overlap between the infill and the walls as a percentage of the infill line width. A slight overlap allows the walls to connect firmly to the infill.",
-                    "unit":"%",
-                    "type":"float",
-                    "default_value":0,
-                    "value":"10 if infill_sparse_density < 95 and infill_pattern != 'concentric' else 0",
-                    "minimum_value_warning":"-50",
-                    "maximum_value_warning":"100",
-                    "enabled":false,
-                    "limit_to_extruder":"infill_extruder_nr",
-                    "settable_per_mesh":true,
-                    "children":{
-                        "infill_overlap_mm":{
-                            "label":"Infill Overlap",
-                            "description":"The amount of overlap between the infill and the walls. A slight overlap allows the walls to connect firmly to the infill.",
-                            "unit":"mm",
-                            "type":"float",
-                            "default_value":0.0,
-                            "minimum_value_warning":"-0.5 * machine_nozzle_size",
-                            "maximum_value_warning":"machine_nozzle_size",
-                            "value":"0.5 * (infill_line_width + (wall_line_width_x if wall_line_count > 1 else wall_line_width_0)) * infill_overlap / 100 if infill_sparse_density < 95 and infill_pattern != 'concentric' else 0",
-                            "enabled":false,
-                            "settable_per_mesh":true
-                        }
-                    }
-                },
-                "skin_overlap":{
-                    "label":"Skin Overlap Percentage",
-                    "description":"The amount of overlap between the skin and the walls as a percentage of the skin line width. A slight overlap allows the walls to connect firmly to the skin. This is a percentage of the average line widths of the skin lines and the innermost wall.",
-                    "unit":"%",
-                    "type":"float",
-                    "default_value":0,
-                    "minimum_value_warning":"-50",
-                    "maximum_value_warning":"100",
-                    "value":"5 if top_bottom_pattern != 'concentric' else 0",
-                    "enabled":false,
-                    "limit_to_extruder":"top_bottom_extruder_nr",
-                    "settable_per_mesh":true,
-                    "children":{
-                        "skin_overlap_mm":{
-                            "label":"Skin Overlap",
-                            "description":"The amount of overlap between the skin and the walls. A slight overlap allows the walls to connect firmly to the skin.",
-                            "unit":"mm",
-                            "type":"float",
-                            "default_value":0.0,
-                            "minimum_value_warning":"-0.5 * machine_nozzle_size",
-                            "maximum_value_warning":"machine_nozzle_size",
-                            "value":"0.5 * (skin_line_width + (wall_line_width_x if wall_line_count > 1 else wall_line_width_0)) * skin_overlap / 100 if top_bottom_pattern != 'concentric' else 0",
-                            "enabled":false,
-                            "settable_per_mesh":true
-                        }
-                    }
                 },
                 "infill_wipe_dist":{
                     "label":"Infill Wipe Distance",
@@ -5716,318 +6008,6 @@
                     "settable_per_mesh":false,
                     "settable_per_extruder":true,
                     "enabled":false
-                },
-                "adhesion_type":{
-                    "label":"Build Plate Adhesion Type",
-                    "description":"Different options that help to improve both priming your extrusion and adhesion to the build plate. Brim adds a single layer flat area around the base of your model to prevent warping. Raft adds a thick grid with a roof below the model. Skirt is a line printed around the model, but not connected to the model.",
-                    "type":"enum",
-                    "options":{
-                        "skirt":"Skirt",
-                        "brim":"Brim",
-                        "raft":"Raft",
-                        "none":"None"
-                    },
-                    "default_value":"none",
-                    "resolve":"extruderValue(adhesion_extruder_nr, 'adhesion_type')",
-                    "enabled":false,
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":false
-                },
-                "adhesion_extruder_nr":{
-                    "label":"Build Plate Adhesion Extruder",
-                    "description":"The extruder train to use for printing the skirt/brim/raft. This is used in multi-extrusion.",
-                    "type":"extruder",
-                    "default_value":"0",
-                    "value":"defaultExtruderPosition()",
-                    "enabled":"extruders_enabled_count > 1 and resolveOrValue('adhesion_type') != 'none'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":false
-                },
-                "skirt_line_count":{
-                    "label":"Skirt Line Count",
-                    "description":"Multiple skirt lines help to prime your extrusion better for small models. Setting this to 0 will disable the skirt.",
-                    "type":"int",
-                    "default_value":1,
-                    "minimum_value":"0",
-                    "maximum_value_warning":"10",
-                    "enabled":"resolveOrValue('adhesion_type') == 'skirt'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "skirt_gap":{
-                    "label":"Skirt Distance",
-                    "description":"The horizontal distance between the skirt and the first layer of the print.\nThis is the minimum distance. Multiple skirt lines will extend outwards from this distance.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":3,
-                    "minimum_value_warning":"max(extruderValues('machine_nozzle_size'))",
-                    "maximum_value_warning":"10",
-                    "enabled":"resolveOrValue('adhesion_type') == 'skirt'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "skirt_brim_minimal_length":{
-                    "label":"Skirt/Brim Minimum Length",
-                    "description":"The minimum length of the skirt or brim. If this length is not reached by all skirt or brim lines together, more skirt or brim lines will be added until the minimum length is reached. Note: If the line count is set to 0 this is ignored.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":250,
-                    "minimum_value":"0",
-                    "minimum_value_warning":"25",
-                    "maximum_value_warning":"2500",
-                    "enabled":"resolveOrValue('adhesion_type') == 'skirt' or resolveOrValue('adhesion_type') == 'brim'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true
-                },
-                "brim_width":{
-                    "label":"Brim Width",
-                    "description":"The distance from the model to the outermost brim line. A larger brim enhances adhesion to the build plate, but also reduces the effective print area.",
-                    "type":"float",
-                    "unit":"mm",
-                    "default_value":8.0,
-                    "minimum_value":"0.0",
-                    "maximum_value_warning":"50.0",
-                    "enabled":"resolveOrValue('adhesion_type') == 'brim'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr",
-                    "children":{
-                        "brim_line_count":{
-                            "label":"Brim Line Count",
-                            "description":"The number of lines used for a brim. More brim lines enhance adhesion to the build plate, but also reduces the effective print area.",
-                            "type":"int",
-                            "default_value":20,
-                            "minimum_value":"0",
-                            "maximum_value_warning":"50 / skirt_brim_line_width",
-                            "value":"math.ceil(brim_width / (skirt_brim_line_width * initial_layer_line_width_factor / 100.0))",
-                            "enabled":"resolveOrValue('adhesion_type') == 'brim'",
-                            "settable_per_mesh":false,
-                            "settable_per_extruder":true,
-                            "limit_to_extruder":"adhesion_extruder_nr"
-                        }
-                    }
-                },
-                "brim_replaces_support":{
-                    "label":"Brim Replaces Support",
-                    "description":"Enforce brim to be printed around the model even if that space would otherwise be occupied by support. This replaces some regions of the first layer of support by brim regions.",
-                    "type":"bool",
-                    "default_value":true,
-                    "enabled":"resolveOrValue('adhesion_type') == 'brim' and support_enable",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"support_infill_extruder_nr"
-                },
-                "brim_outside_only":{
-                    "label":"Brim Only on Outside",
-                    "description":"Only print the brim on the outside of the model. This reduces the amount of brim you need to remove afterwards, while it doesn't reduce the bed adhesion that much.",
-                    "type":"bool",
-                    "default_value":true,
-                    "enabled":"resolveOrValue('adhesion_type') == 'brim'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "raft_margin":{
-                    "label":"Raft Extra Margin",
-                    "description":"If the raft is enabled, this is the extra raft area around the model which is also given a raft. Increasing this margin will create a stronger raft while using more material and leaving less area for your print.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":15,
-                    "minimum_value_warning":"raft_interface_line_width",
-                    "maximum_value_warning":"20",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "limit_to_extruder":"adhesion_extruder_nr",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true
-                },
-                "raft_smoothing":{
-                    "label":"Raft Smoothing",
-                    "description":"This setting controls how much inner corners in the raft outline are rounded. Inward corners are rounded to a semi circle with a radius equal to the value given here. This setting also removes holes in the raft outline which are smaller than such a circle.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":5,
-                    "minimum_value":"0",
-                    "minimum_value_warning":"raft_interface_line_width",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "limit_to_extruder":"adhesion_extruder_nr",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true
-                },
-                "raft_airgap":{
-                    "label":"Raft Air Gap",
-                    "description":"The gap between the final raft layer and the first layer of the model. Only the first layer is raised by this amount to lower the bonding between the raft layer and the model. Makes it easier to peel off the raft.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":0.3,
-                    "minimum_value":"0",
-                    "maximum_value_warning":"min(extruderValues('machine_nozzle_size'))",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "layer_0_z_overlap":{
-                    "label":"Initial Layer Z Overlap",
-                    "description":"Make the first and second layer of the model overlap in the Z direction to compensate for the filament lost in the airgap. All models above the first model layer will be shifted down by this amount.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":0.22,
-                    "value":"raft_airgap / 2",
-                    "minimum_value":"0",
-                    "maximum_value_warning":"raft_airgap",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "raft_surface_layers":{
-                    "label":"Raft Top Layers",
-                    "description":"The number of top layers on top of the 2nd raft layer. These are fully filled layers that the model sits on. 2 layers result in a smoother top surface than 1.",
-                    "type":"int",
-                    "default_value":2,
-                    "minimum_value":"0",
-                    "maximum_value_warning":"20",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "raft_surface_thickness":{
-                    "label":"Raft Top Layer Thickness",
-                    "description":"Layer thickness of the top raft layers.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":0.1,
-                    "value":"resolveOrValue('layer_height')",
-                    "minimum_value":"0.0001",
-                    "minimum_value_warning":"0.04",
-                    "maximum_value_warning":"0.75 * machine_nozzle_size",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "raft_surface_line_width":{
-                    "label":"Raft Top Line Width",
-                    "description":"Width of the lines in the top surface of the raft. These can be thin lines so that the top of the raft becomes smooth.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":0.4,
-                    "value":"line_width",
-                    "minimum_value":"0.0001",
-                    "minimum_value_warning":"machine_nozzle_size * 0.1",
-                    "maximum_value_warning":"machine_nozzle_size * 2",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "raft_surface_line_spacing":{
-                    "label":"Raft Top Spacing",
-                    "description":"The distance between the raft lines for the top raft layers. The spacing should be equal to the line width, so that the surface is solid.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":0.4,
-                    "minimum_value":"0",
-                    "minimum_value_warning":"raft_surface_line_width",
-                    "maximum_value_warning":"raft_surface_line_width * 3",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "value":"raft_surface_line_width",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "raft_interface_thickness":{
-                    "label":"Raft Middle Thickness",
-                    "description":"Layer thickness of the middle raft layer.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":0.15,
-                    "value":"resolveOrValue('layer_height') * 1.5",
-                    "minimum_value":"0.0001",
-                    "minimum_value_warning":"0.04",
-                    "maximum_value_warning":"0.75 * machine_nozzle_size",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "raft_interface_line_width":{
-                    "label":"Raft Middle Line Width",
-                    "description":"Width of the lines in the middle raft layer. Making the second layer extrude more causes the lines to stick to the build plate.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":0.7,
-                    "value":"line_width * 2",
-                    "minimum_value":"0.0001",
-                    "minimum_value_warning":"machine_nozzle_size * 0.5",
-                    "maximum_value_warning":"machine_nozzle_size * 3",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "raft_interface_line_spacing":{
-                    "label":"Raft Middle Spacing",
-                    "description":"The distance between the raft lines for the middle raft layer. The spacing of the middle should be quite wide, while being dense enough to support the top raft layers.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":0.9,
-                    "value":"raft_interface_line_width + 0.2",
-                    "minimum_value":"0",
-                    "minimum_value_warning":"raft_interface_line_width",
-                    "maximum_value_warning":"15.0",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "raft_base_thickness":{
-                    "label":"Raft Base Thickness",
-                    "description":"Layer thickness of the base raft layer. This should be a thick layer which sticks firmly to the printer build plate.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":0.3,
-                    "value":"resolveOrValue('layer_height_0') * 1.2",
-                    "minimum_value":"0.0001",
-                    "minimum_value_warning":"0.04",
-                    "maximum_value_warning":"0.75 * raft_base_line_width",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "raft_base_line_width":{
-                    "label":"Raft Base Line Width",
-                    "description":"Width of the lines in the base raft layer. These should be thick lines to assist in build plate adhesion.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":0.8,
-                    "minimum_value":"0.0001",
-                    "value":"machine_nozzle_size * 2",
-                    "minimum_value_warning":"machine_nozzle_size * 0.5",
-                    "maximum_value_warning":"machine_nozzle_size * 3",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
-                },
-                "raft_base_line_spacing":{
-                    "label":"Raft Base Line Spacing",
-                    "description":"The distance between the raft lines for the base raft layer. Wide spacing makes for easy removal of the raft from the build plate.",
-                    "unit":"mm",
-                    "type":"float",
-                    "default_value":1.6,
-                    "value":"raft_base_line_width * 2",
-                    "minimum_value":"0",
-                    "minimum_value_warning":"raft_base_line_width",
-                    "maximum_value_warning":"100",
-                    "enabled":"resolveOrValue('adhesion_type') == 'raft'",
-                    "settable_per_mesh":false,
-                    "settable_per_extruder":true,
-                    "limit_to_extruder":"adhesion_extruder_nr"
                 },
                 "raft_speed":{
                     "label":"Raft Print Speed",
