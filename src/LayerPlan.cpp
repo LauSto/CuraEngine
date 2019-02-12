@@ -1331,16 +1331,18 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
     communication->setLayerForSend(layer_nr);
     communication->sendCurrentPosition(gcode.getPositionXY());
     gcode.setLayerNr(layer_nr);
-    
+
     gcode.writeLayerComment(layer_nr);
-    if (gcode.getFlavor() == EGCodeFlavor::SLM) {
-        gcode.writeCode("$L1Fin=0");
-        gcode.writeCode("GALVO LASEROVERRIDE X OFF");
-    }
 
     // flow-rate compensation
     const Settings& mesh_group_settings = Application::getInstance().current_slice->scene.current_mesh_group->settings;
     gcode.setFlowRateExtrusionSettings(mesh_group_settings.get<double>("flow_rate_max_extrusion_offset"), mesh_group_settings.get<Ratio>("flow_rate_extrusion_offset_factor")); //Offset is in mm.
+
+    if (mesh_group_settings.exists("layer_start_code")) {
+        std::string start_code = storage.meshes[0].settings.get<std::string>("layer_start_code");
+        for (char *tok = strtok(&start_code[0u], "|"); tok != nullptr; tok = strtok(nullptr, "|"))
+            gcode.writeCode(tok);
+    }
 
     if (layer_nr == 1 - static_cast<LayerIndex>(Raft::getTotalExtraLayers()) && mesh_group_settings.get<bool>("machine_heated_bed") && mesh_group_settings.get<Temperature>("material_bed_temperature") != 0)
     {
@@ -1603,12 +1605,10 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
         extruder_plan.handleAllRemainingInserts(gcode);
     } // extruder plans /\  .
 
-    if (gcode.getFlavor() == EGCodeFlavor::SLM) {
-        gcode.writeCode("$L1Fin=1");
-        gcode.writeCode("WAIT($L1Fin==1)-1");
-        gcode.writeCode("$PowderDeposition=1");
-        gcode.writeCode("WAIT($PowderDeposition==0)-1");
-        gcode.writeCode("DWELL 0.500");
+    if (mesh_group_settings.exists("layer_end_code")) {
+        std::string start_code = storage.meshes[0].settings.get<std::string>("layer_end_code");
+        for (char *tok = strtok(&start_code[0u], "|"); tok != nullptr; tok = strtok(nullptr, "|"))
+            gcode.writeCode(tok);
     }
 
     gcode.updateTotalPrintTime();
