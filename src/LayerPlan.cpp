@@ -1493,6 +1493,17 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
                 std::stringstream ss;
                 ss << "MESH:" << current_mesh;
                 gcode.writeComment(ss.str());
+                for (const SliceMeshStorage& mesh : storage.meshes) {
+                    if (mesh.mesh_name == current_mesh) {
+                        if (mesh.settings.exists("laser_power")) {
+                            std::stringstream ss;
+                            ss << "F" << PrecisionedDouble{1, mesh.settings.get<Velocity>("speed_print")} << std::endl;
+                            ss << "$SetL1Power=" << mesh.settings.get<size_t>("laser_power");
+                            gcode.writeCode(ss.str().c_str());
+                        }
+                        break;
+                    }
+                }
             }
             if (path.config->isTravelPath())
             { // early comp for travel paths, which are handled more simply
