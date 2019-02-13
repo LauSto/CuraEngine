@@ -1500,7 +1500,8 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
                         if (mesh.settings.exists("laser_power")) {
                             std::stringstream ss;
                             ss << "F" << PrecisionedDouble{1, mesh.settings.get<Velocity>("speed_print")} << std::endl;
-                            ss << "$SetL1Power=" << mesh.settings.get<size_t>("laser_power");
+                            ss << "$SetL1Power=" << mesh.settings.get<size_t>("laser_power") << std::endl;
+                            ss << "DWELL 0.2";
                             gcode.writeCode(ss.str().c_str());
                         }
                         break;
@@ -1610,6 +1611,7 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
         for (char *tok = strtok(&start_code[0u], "|"); tok != nullptr; tok = strtok(nullptr, "|"))
             gcode.writeCode(tok);
     }
+
 
     gcode.updateTotalPrintTime();
 }
