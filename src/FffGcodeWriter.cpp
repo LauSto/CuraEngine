@@ -1298,7 +1298,7 @@ std::vector<std::pair<Polygons, AngleDegrees>> FffGcodeWriter::getCheckerboard(c
     ClipperLib::cInt boundY = aabb.max.Y - (aabb.min.Y - gridYOffset);
     ClipperLib::cInt boundRotX = boundX*cosCA+boundY*sinCA;
     ClipperLib::cInt boundRotY = boundY*cosCA+boundX*sinCA;
-    Point startRot = Point(aabb.min.X - gridXOffset + boundX*sinCA*sinCA, aabb.min.Y - gridYOffset-boundY*sinCA*cosCA);
+    Point startRot = Point(aabb.min.X - gridXOffset + boundX*sinCA*sinCA, aabb.min.Y - gridYOffset-boundX*sinCA*cosCA);
     Polygon rotTile;
     Point A = Point(overlapY*sinCA-overlapX*cosCA,-overlapX*sinCA-overlapY*cosCA);
     Point D = A + Point(-sinCA*(gridDX+overlapX),cosCA*(gridDY+overlapY));
