@@ -17,6 +17,7 @@
 #include "settings/types/Ratio.h"
 #include "utils/logoutput.h"
 #include "utils/polygonUtils.h"
+#include "utils/string.h"
 
 namespace cura {
 
